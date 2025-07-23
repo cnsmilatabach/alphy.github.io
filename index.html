@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,45 +15,106 @@
     }
 
     .chat-widget {
-        position: fixed;
-        bottom: 0px;
-        right: 10px;
-        width: 500px;
-        height: 650px;
-        overflow: hidden;
+      position: fixed;
+      bottom: 0;
+      right: 10px;
+      width: 450px;
+      height: 550px;
+      background-color: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.3);
+      display: flex;
+      flex-direction: column;
+
     }
 
-    
     .chat-header {
-    background-color: #003087;
-    color: white;
-    padding: 10px;
-    font-weight: bold;
-    text-align: center;
-    font-size: 16px;
+      background-color: #003087;
+      color: white;
+      padding: 10px;
+      font-weight: bold;
+      text-align: center;
+      font-size: 16px;
     }
 
-    .iframe {
-        color: 
-
+    #webchat {
+      flex: 1;
+      overflow: hidden;
     }
+
+    .corner-image {
+        position: fixed;
+        bottom: 480px;
+        right: 410px;
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        object-fit: cover;
+        border-width: 2px;
+        border-color: #003087;
+        border-style: solid; /* This line adds the visible border */
+    }
+
 
   </style>
-</head>
+
+  <script crossorigin="anonymous" src="https://cdn.botframework.com/botframework-webchat/latest/webchat.js"></script>
 
 </head>
 <body>
 
-    <class="chat-widget">
-        <iframe
-        class="chat-widget"
-        src="https://copilotstudio.microsoft.com/environments/Default-d848a277-c466-4e51-aade-2a7e68509a01/bots/cr6f7_cnsBot/webchat?__version__=2"
-        frameborder="0"> 
-        </iframe>
+  <div class="chat-widget">
+    <div class="chat-header">Alphy</div>
+    <div id="webchat" role="main"></div>
+  </div>
 
-    </class>
+<img src="alphy.png" alt="Alphy" class="corner-image" />
 
+  <script>
+    (async function () {
+      const styleOptions = {
+        hideUploadButton: true
+      };
 
-</body></html>
+      const tokenEndpointURL = new URL('https://defaultd848a277c4664e51aade2a7e68509a.01.environment.api.powerplatform.com/powervirtualagents/botsbyschema/cr6f7_cnsBot/directline/token?api-version=2022-03-01-preview');
+      const locale = document.documentElement.lang || 'en';
+      const apiVersion = tokenEndpointURL.searchParams.get('api-version');
 
+      const [directLineURL, token] = await Promise.all([
+        fetch(new URL(`/powervirtualagents/regionalchannelsettings?api-version=${apiVersion}`, tokenEndpointURL))
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to retrieve regional channel settings.');
+            return response.json();
+          })
+          .then(({ channelUrlsById: { directline } }) => directline),
+        fetch(tokenEndpointURL)
+          .then(response => {
+            if (!response.ok) throw new Error('Failed to retrieve Direct Line token.');
+            return response.json();
+          })
+          .then(({ token }) => token)
+      ]);
 
+      const directLine = WebChat.createDirectLine({ domain: new URL('v3/directline', directLineURL), token });
+
+      const subscription = directLine.connectionStatus$.subscribe({
+        next(value) {
+          if (value === 2) {
+            directLine
+              .postActivity({
+                localTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                locale,
+                name: 'startConversation',
+                type: 'event'
+              })
+              .subscribe();
+            subscription.unsubscribe();
+          }
+        }
+      });
+
+      WebChat.renderWebChat({ directLine, locale, styleOptions }, document.getElementById('webchat'));
+    })();
+  </script>
+
+</body>
+</html>
